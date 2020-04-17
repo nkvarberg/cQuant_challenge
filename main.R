@@ -137,9 +137,9 @@ for (SetPt in unique(formattedPrices$SettlementPoint)){
     filter(SettlementPoint == SetPt) %>%
     separate(Date, into = c("Year", "Month", "Day"), by="-") %>%
     group_by(SettlementPoint, Month, Weekday, Hourend) %>%
-    summarise(AveragePrice = mean(Price)) %>%
+    summarise(AveragePrice = mean(Price)) %>% # average price per hour
     group_by(SettlementPoint, Month, Weekday) %>%
-    mutate(NormAveragePrice = AveragePrice/mean(AveragePrice)) %>%
+    mutate(NormAveragePrice = AveragePrice/mean(AveragePrice)) %>% # hour average over day average
     select(SettlementPoint, Month, Weekday, Hourend, NormAveragePrice)
   hourlyShape %>% write.csv(paste0(hourlyShapePath,'profile_',SetPt,'.csv'), row.names = F)
 }
