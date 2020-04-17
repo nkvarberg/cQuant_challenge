@@ -12,7 +12,8 @@ outputFormattedPath <- 'output/formattedSpotHistory/'
 # First set working directory
 setwd(workingDir)
 
-# TASK 1
+
+## TASK 1
 prices <- NULL
 for (file in list.files(histPricePath)){
   df <- read_csv(paste0(histPricePath,file))
@@ -23,7 +24,7 @@ for (file in list.files(histPricePath)){
   }
 } 
 
-# TASK 2
+##TASK 2
 # Split date into date and time
 # Split date into year month day
 # Group dataframe by year and month, 
@@ -33,11 +34,12 @@ aveMonthly <- prices %>% separate(Date, c("Date", "Time"), " ") %>%
   group_by(SettlementPoint, Year, Month) %>% 
   summarise(AveragePrice = mean(Price))
 
-# TASK 3
+## TASK 3
 # Write to csv
 aveMonthly %>% write.csv(paste0(outputPath,'AveragePriceByMonth.csv'), row.names = F)
 
-# TASK 4
+
+## TASK 4
 # First filter to just hubs, then filter to > zero
 # Compute the hourly price volatility for each year and each settlement hub
 hourlyVol <- prices %>% 
@@ -47,11 +49,12 @@ hourlyVol <- prices %>%
   group_by(SettlementPoint, Year) %>% 
   summarise(HourlyVolatility = sd(log(Price)))
 
-# TASK 5
+## TASK 5
 # Write hourly vol to a csv
 hourlyVol %>% write.csv(paste0(outputPath,'HourlyVolatilityByYear.csv'), row.names = F)
 
-# TASK 6
+
+## TASK 6
 # Summarise highest vol hub for each year
 maxHourlyVol <- hourlyVol %>% group_by(Year) %>% 
   filter(HourlyVolatility == max(HourlyVolatility)) %>% arrange(Year)
@@ -59,7 +62,7 @@ maxHourlyVol <- hourlyVol %>% group_by(Year) %>%
 maxHourlyVol %>% write.csv(paste0(outputPath,'MaxVolatilityByYear.csv'), row.names = F)
 
 
-# TASK 7
+## TASK 7
 # Take prices and split date into Date and Time
 # Change Hour to just first two digits
 formattedPrices <- prices %>% separate(Date, c("Date", "Time"), " ") %>%
@@ -87,7 +90,8 @@ for (setPt in unique(formattedPrices$SettlementPoint)){
     row.names = F)
 }
 
-# BONUS MEAN PLOTS
+
+## BONUS MEAN PLOTS
 # First create Date column
 plotMonthly <- aveMonthly %>% 
   mutate(Day = '01') %>%
@@ -113,3 +117,16 @@ loadzonesPlot <- ggplot(filter(plotMonthly, str_detect(SettlementPoint, '^LZ')),
 # Save to png
 ggsave(paste0(outputPath, 'LoadZoneAveragePriceByMonth.png'),
        plot = loadzonesPlot)
+
+
+## BONUS VOLATILITY PLOTS
+hourlyVol$SettlementPoint <- as.factor(hourlyVol$SettlementPoint)
+hourlyVolPlot <- ggplot(filter(hourlyVol, SettlementPoint != 'HB_PAN'), 
+       aes(x=Year, y=HourlyVolatility, group=SettlementPoint, color=SettlementPoint)) + 
+  geom_line() +
+  ggtitle('Yearlong Power Price Hourly Vol is increasing recently')
+ggsave(paste0(outputPath, 'HourlyVolByYear.png'),
+       plot = hourlyVolPlot)
+
+
+## BONUS HOURLY SHAPE PROFILE CALCULATION
