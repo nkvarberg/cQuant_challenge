@@ -1,6 +1,6 @@
 # Nick Varberg
 # April 17, 2020
-# cQuant coding challenge
+# cQuant Energy Analyst coding challenge
 
 # Load libraries and set filepaths
 library(tidyverse)
@@ -8,6 +8,7 @@ workingDir <- "/Users/nickvarberg/Desktop/cQuant_challenge"
 histPricePath <- 'historicalPriceData/'
 outputPath <- 'output/'
 outputFormattedPath <- 'output/formattedSpotHistory/'
+hourlyShapePath <- 'output/hourlyShapeProfiles/'
 
 # First set working directory
 setwd(workingDir)
@@ -125,8 +126,26 @@ hourlyVolPlot <- ggplot(filter(hourlyVol, SettlementPoint != 'HB_PAN'),
        aes(x=Year, y=HourlyVolatility, group=SettlementPoint, color=SettlementPoint)) + 
   geom_line() +
   ggtitle('Yearlong Power Price Hourly Vol is increasing recently')
-ggsave(paste0(outputPath, 'HourlyVolByYear.png'),
+ggsave(paste0(outputPath, 'HourlyVolatilityByYear.png'),
        plot = hourlyVolPlot)
 
 
 ## BONUS HOURLY SHAPE PROFILE CALCULATION
+for (SetPt in unique(formattedPrices$SettlementPoint)){
+  hourlyShape <- formattedPrices %>% 
+    mutate(Weekday = weekdays(as.Date(Date))) %>%
+    filter(SettlementPoint == SetPt) %>%
+    separate(Date, into = c("Year", "Month", "Day"), by="-") %>%
+    group_by(SettlementPoint, Month, Weekday, Hourend) %>%
+    summarise(AveragePrice = mean(Price)) %>%
+    group_by(SettlementPoint, Month, Weekday) %>%
+    mutate(NormAveragePrice = AveragePrice/mean(AveragePrice)) %>%
+    select(SettlementPoint, Month, Weekday, Hourend, NormAveragePrice)
+  hourlyShape %>% write.csv(paste0(hourlyShapePath,'profile_',SetPt,'.csv'), row.names = F)
+}
+
+# I enjoyed this challenge.
+# Thank you for taking the time to look over my work!
+# I look forward to hearing back.
+# Nick Varberg
+# nicholas.varberg@colorado.edu
