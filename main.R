@@ -1,7 +1,8 @@
-#install.packages("devtools")
-# To get pivot_wider
-#install.packages("broom")
-#devtools::install_github("hadley/tidyverse")
+# Nick Varberg
+# April 17, 2020
+# cQuant coding challenge
+
+# Load libraries and set filepaths
 library(tidyverse)
 workingDir <- "/Users/nickvarberg/Desktop/cQuant_challenge"
 histPricePath <- 'historicalPriceData/'
@@ -12,12 +13,9 @@ outputFormattedPath <- 'output/formattedSpotHistory/'
 setwd(workingDir)
 
 # TASK 1
-# try file.names
-histPriceName <- 'ERCOT_DA_Prices_'
-years <- c(2016, 2017, 2018, 2019)
 prices <- NULL
-for (year in years){
-  df <- read_csv(paste0(histPricePath,histPriceName,year,'.csv'))
+for (file in list.files(histPricePath)){
+  df <- read_csv(paste0(histPricePath,file))
   if (is.null(prices)){
     prices <- df
   } else {
@@ -41,9 +39,12 @@ aveMonthly %>% write.csv(paste0(outputPath,'AveragePriceByMonth.csv'), row.names
 
 # TASK 4
 # First filter to just hubs, then filter to > zero
-hubs <- prices %>% filter(str_detect(SettlementPoint, "^HB")) %>% filter(Price>0)
 # Compute the hourly price volatility for each year and each settlement hub
-hourlyVol <- hubs %>% group_by(SettlementPoint, Year) %>% 
+hourlyVol <- prices %>% 
+  filter(str_detect(SettlementPoint, "^HB")) %>% 
+  filter(Price>0) %>%
+  separate(Date, into = c("Year", "Month", "Day"), by="-") %>%
+  group_by(SettlementPoint, Year) %>% 
   summarise(HourlyVolatility = sd(log(Price)))
 
 # TASK 5
@@ -63,17 +64,52 @@ maxHourlyVol %>% write.csv(paste0(outputPath,'MaxVolatilityByYear.csv'), row.nam
 # Change Hour to just first two digits
 formattedPrices <- prices %>% separate(Date, c("Date", "Time"), " ") %>%
   separate(Time, c('Hour', 'Minute', 'Second'), ':') %>%
-  mutate(Hour = as.integer(Hour)+1) %>%
-  select(-c(Minute, Second))
+  mutate(Hourend = as.integer(Hour)+1) %>%
+  select(-c(Hour, Minute, Second))
 # Group by each settlement point
+# If I had pivot_wider() I would use it here but I couldn't get it to load,
+#  so I used spread()
 for (setPt in unique(formattedPrices$SettlementPoint)){
   a <- formattedPrices %>% filter(SettlementPoint == setPt) %>%
-    pivot_wider(Date, Hour, names_prefix = "X")
-  print(head(a))
+    spread(Hourend, Price)
+  # Change colnames to Date, Variable, X1, X2, ...
+  newcols <- colnames(a)
+  newcols[2] <- 'Variable'
+  for (i in 3:length(newcols)){
+    newcols[i] = paste0('X', newcols[i])
+  }
+  colnames(a) <- newcols
+  # reorder columns
+  a <- a[c(2,1,3:ncol(a))]
+  # write to csv
+  a %>% write.csv(
+    paste0(outputFormattedPath,'spot_',setPt, '.csv'), 
+    row.names = F)
 }
 
+# BONUS MEAN PLOTS
+# First create Date column
+plotMonthly <- aveMonthly %>% 
+  mutate(Day = '01') %>%
+  unite(Date, Year, Month, Day,sep = "-") %>%
+  mutate(Date = as.Date(Date))
 
+# The first plot should show the monthly average prices for all settlement hubs
+hubsPlot <- ggplot(filter(plotMonthly, str_detect(SettlementPoint, '^HB')), 
+          aes(x=Date, y=AveragePrice, color=SettlementPoint)) +
+  geom_line() + 
+  scale_x_date(date_breaks = "months" , date_labels = "%Y-%m-%d") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+# Save to png
+ggsave(paste0(outputPath, 'SettlementHubAveragePriceByMonth.png'),
+       plot = hubsPlot)
 
-
-
-
+# The second plot should show the monthly average prices for all load zones
+loadzonesPlot <- ggplot(filter(plotMonthly, str_detect(SettlementPoint, '^LZ')), 
+                   aes(x=Date, y=AveragePrice, color=SettlementPoint)) +
+  geom_line() + 
+  scale_x_date(date_breaks = "months" , date_labels = "%Y-%m-%d") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+# Save to png
+ggsave(paste0(outputPath, 'LoadZoneAveragePriceByMonth.png'),
+       plot = loadzonesPlot)
